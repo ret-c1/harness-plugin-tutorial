@@ -1,3 +1,5 @@
+"""网络安全管理模块的数据转换与通用持久化函数。"""
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,5 @@
+"""认证接口。"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -5,14 +7,14 @@ from fastapi import APIRouter, HTTPException
 from app.config import get_settings
 from app.database import utc_now
 from app.dependencies import CurrentUser, Db
-from app.repository import commit_or_conflict, user_from_row
-from app.schemas import (
+from app.modules.security.models import (
     LoginRequest,
-    MessageResponse,
     PasswordChange,
     TokenResponse,
     UserRead,
 )
+from app.modules.security.repository import commit_or_conflict, user_from_row
+from app.schemas import MessageResponse
 from app.security import create_access_token, hash_password, verify_password
 
 

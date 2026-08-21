@@ -12,7 +12,11 @@ security-harness-plugin/
 │   │   ├── cordis.patch.yml
 │   │   ├── package.json
 │   │   └── tsconfig.json
-│   └── <next-plugin>/
+│   └── memory/
+│       ├── src/index.ts
+│       ├── cordis.patch.yml
+│       ├── package.json
+│       └── tsconfig.json
 ├── package.json
 ├── pnpm-workspace.yaml
 └── pnpm-lock.yaml
@@ -33,6 +37,13 @@ security-harness-plugin/
 
 新增插件时复制一个子包骨架，而不是把实现继续堆进公共 `src/`。
 
+## 当前插件
+
+| 插件 | 用途 | 数据边界 |
+| --- | --- | --- |
+| [`asset-management`](plugins/asset-management/README.md) | 资产查询、统计与风险评估 | 只读，实时状态必须以本轮 API 为准 |
+| [`memory`](plugins/memory/README.md) | User Memory、Project Memory 和 Task History | 可读写，一个实例只绑定一个 API 用户 |
+
 ## 开发
 
 安装整个 workspace 的依赖并检查全部插件：
@@ -41,6 +52,7 @@ security-harness-plugin/
 pnpm install
 pnpm run check
 pnpm run build
+pnpm run test
 ```
 
 只操作一个插件：
@@ -48,6 +60,11 @@ pnpm run build
 ```sh
 pnpm --filter @security-harness/asset-management run check
 pnpm --filter @security-harness/asset-management run build
+pnpm --filter @security-harness/asset-management run test
+
+pnpm --filter @security-harness/memory run check
+pnpm --filter @security-harness/memory run build
+pnpm --filter @security-harness/memory run test
 ```
 
 DeepSeek Harness 源码仓库中的 `scratch-plugin/cordis.yml` 只保存本地开发所需的插件注册行。每增加一个插件，就在那里增加一条指向本仓库对应 `plugins/<name>/src/index.ts` 的注册；业务实现不再进入 Harness 仓库。
@@ -55,7 +72,8 @@ DeepSeek Harness 源码仓库中的 `scratch-plugin/cordis.yml` 只保存本地�
 生产或独立 profile 使用每个子包自己的 `dsh.bundle`：
 
 ```sh
-pnpm dsh plugin --profile web add /Users/fan/Documents/workspace/security-harness-plugin/plugins/asset-management
+pnpm dsh plugin --profile web add "$(pwd)/plugins/asset-management"
+pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 ```
 
-插件清单见 [`plugins/`](plugins/)。
+安装 Memory 插件前必须先配置 `MEMORY_API_BASE_URL`、`MEMORY_API_USERNAME`、`MEMORY_API_PASSWORD` 和可选的 `MEMORY_API_TIMEOUT_MS`。共享多用户部署不得共用一组账号，应按用户拆分 scoped 插件实例或 profile。详细说明见 [`memory/README.md`](plugins/memory/README.md)。

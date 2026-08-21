@@ -1,3 +1,5 @@
+"""漏洞管理接口。"""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -6,7 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.database import utc_now
 from app.dependencies import Db, require_action
-from app.repository import (
+from app.modules.security.models import (
+    Severity,
+    VulnerabilityCreate,
+    VulnerabilityRead,
+    VulnerabilityUpdate,
+    WorkflowStatus,
+)
+from app.modules.security.repository import (
     commit_or_conflict,
     ensure_row,
     insert_record,
@@ -14,14 +23,7 @@ from app.repository import (
     update_record,
     vulnerability_from_row,
 )
-from app.schemas import (
-    Page,
-    Severity,
-    VulnerabilityCreate,
-    VulnerabilityRead,
-    VulnerabilityUpdate,
-    WorkflowStatus,
-)
+from app.schemas import Page
 
 
 router = APIRouter(prefix="/vulnerabilities", tags=["漏洞管理"])
@@ -167,4 +169,3 @@ def delete_vulnerability(
     db.execute("DELETE FROM vulnerabilities WHERE id = ?", (vulnerability_id,))
     commit_or_conflict(db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-

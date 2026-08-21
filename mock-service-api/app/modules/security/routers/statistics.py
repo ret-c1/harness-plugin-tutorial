@@ -1,3 +1,5 @@
+"""安全统计接口。"""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -5,12 +7,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.dependencies import Db, require_action
-from app.repository import SEVERITY_KEYS, STATUS_KEYS, normalized_counts
-from app.schemas import (
+from app.modules.security.models import (
     AssetRiskStatistics,
     DistributionStatistics,
     OwnershipStatistics,
 )
+from app.modules.security.repository import SEVERITY_KEYS, STATUS_KEYS, normalized_counts
 
 
 router = APIRouter(prefix="/statistics", tags=["统计场景"])
@@ -163,4 +165,3 @@ def vulnerability_distribution(
         "severity": _group_counts(db, "vulnerabilities", "severity", SEVERITY_KEYS),
         "status": _group_counts(db, "vulnerabilities", "status", STATUS_KEYS),
     }
-

@@ -1,0 +1,9 @@
+# One plugin instance is bound to one API user. Use a separate scoped instance/profile per user.
+- insert:
+    - id: memory
+      name: '@security-harness/memory'
+      config:
+        baseUrl: !!js process.env.MEMORY_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
+        username: !!js process.env.MEMORY_API_USERNAME
+        password: !!js process.env.MEMORY_API_PASSWORD
+        timeoutMs: !!js Number(process.env.MEMORY_API_TIMEOUT_MS ?? 15000)

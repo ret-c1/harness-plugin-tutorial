@@ -1,3 +1,5 @@
+"""资产管理接口。"""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +9,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.database import utc_now
 from app.dependencies import Db, require_action
-from app.repository import (
+from app.modules.security.models import (
+    AssetCreate,
+    AssetDetail,
+    AssetRead,
+    AssetStatus,
+    AssetType,
+    AssetUpdate,
+    Criticality,
+    SecurityEventRead,
+    VulnerabilityRead,
+)
+from app.modules.security.repository import (
     asset_from_row,
     commit_or_conflict,
     ensure_row,
@@ -16,18 +29,7 @@ from app.repository import (
     update_record,
     vulnerability_from_row,
 )
-from app.schemas import (
-    AssetCreate,
-    AssetDetail,
-    AssetRead,
-    AssetStatus,
-    AssetType,
-    AssetUpdate,
-    Criticality,
-    Page,
-    SecurityEventRead,
-    VulnerabilityRead,
-)
+from app.schemas import Page
 
 
 router = APIRouter(prefix="/assets", tags=["资产管理"])

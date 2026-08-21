@@ -1,6 +1,6 @@
-# DeepSeek Harness 网络安全管理 API
+# DeepSeek Harness 模块化测试 API
 
-一个面向 DeepSeek Harness/其他 HTTP 客户端的 Python 3 API 服务，提供用户登录和权限控制，以及资产、漏洞、安全事件的管理、关联查询与统计。服务使用 FastAPI，数据保存在 SQLite 中，启动后自动生成 OpenAPI 定义。
+一个面向 DeepSeek Harness/其他 HTTP 客户端的 Python 3 API 服务。接口按业务模块组织：`security` 模块提供用户登录、权限控制以及资产、漏洞、安全事件和统计接口；`memory` 模块提供 Memory 插件联调所需的 User Memory、Project Memory 与 Task History。服务使用 FastAPI，数据保存在 SQLite 中，启动后自动生成 OpenAPI 定义。
 
 ## 快速启动
 
@@ -27,6 +27,20 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - Swagger 接口文档：`http://127.0.0.1:8000/docs`
 - OpenAPI JSON：`http://127.0.0.1:8000/openapi.json`
 - 健康检查：`http://127.0.0.1:8000/health`
+
+## 模块结构
+
+```text
+app/
+├── modules/
+│   ├── security/              # 现有网络安全接口的统一入口和数据库定义
+│   │   └── routers/           # 用户、资产、漏洞、事件和统计资源路由
+│   └── memory/                # Memory 模型、数据表、仓储与三类接口
+├── database.py                # 连接管理并初始化各模块数据表
+└── main.py                    # 仅负责应用配置和模块挂载
+```
+
+两个模块共享 `/api/v1` 版本前缀。现有 Security API 路径保持不变；Memory API 使用 `/api/v1/memory` 前缀。新增业务模块时应在 `app/modules/<name>/` 内维护自己的数据表定义、请求/响应模型和路由，再由 `app/main.py` 统一挂载。
 
 SQLite 文件默认创建在 `./data/security.db`。可通过环境变量修改配置：
 
@@ -256,6 +270,85 @@ DeepSeek Harness 只需以 HTTP 工具调用上述 Base URL，并在除登录、
 }
 ```
 
+### Memory 插件联调
+
+Memory 接口按 Bearer Token 中的当前用户严格隔离。请求体不接受 `user_id`，服务端会自动写入当前用户 ID；查询详情、修改或删除其他用户的数据统一返回 `404`，避免暴露记录是否存在。该规则同样适用于管理员。
+
+Memory 是用户个人数据，因此所有已登录且启用的账号均可维护自己的记忆，不沿用 Security 模块的角色写权限。例如，只读业务角色 `user_b` 仍可创建、修改和删除自己的 Memory 数据。
+
+Harness 侧一个 Memory 插件实例只能绑定一个 API 账号。多用户部署应为每个用户分配独立的 scoped 实例或 profile，不能让模型选择 `user_id`。插件配置、工具列表和异常处理见 [`../security-harness-plugin/plugins/memory/README.md`](../security-harness-plugin/plugins/memory/README.md)。
+
+#### User Memory
+
+用于保存跨项目生效的用户偏好和稳定事实。同一用户下 `key` 唯一，不同用户可使用相同 `key`。
+
+| 方法 | 路径 | 功能 |
+|---|---|---|
+| `GET` | `/memory/user-memories` | 分页查询当前用户的记忆，支持 `search` |
+| `GET` | `/memory/user-memories/{id}` | 查询当前用户的记忆详情 |
+| `POST` | `/memory/user-memories` | 创建记忆 |
+| `PATCH` | `/memory/user-memories/{id}` | 修改记忆 |
+| `DELETE` | `/memory/user-memories/{id}` | 删除记忆 |
+
+主要字段：`key`、`content`、`metadata`；响应另含服务端生成的 `id`、`user_id`、`created_at` 和 `updated_at`。
+
+```json
+{
+  "key": "response_language",
+  "content": "优先使用中文回答",
+  "metadata": {"source": "explicit"}
+}
+```
+
+#### Project Memory
+
+用于保存某个用户在特定项目中的约定、决策和上下文。同一用户和同一 `project_id` 下 `key` 唯一；不同用户或不同项目可使用相同 `key`。
+
+| 方法 | 路径 | 功能 |
+|---|---|---|
+| `GET` | `/memory/project-memories` | 分页查询当前用户的项目记忆，支持 `project_id`、`search` |
+| `GET` | `/memory/project-memories/{id}` | 查询当前用户的项目记忆详情 |
+| `POST` | `/memory/project-memories` | 创建项目记忆 |
+| `PATCH` | `/memory/project-memories/{id}` | 修改项目记忆 |
+| `DELETE` | `/memory/project-memories/{id}` | 删除项目记忆 |
+
+```json
+{
+  "project_id": "security-harness-plugin",
+  "key": "api_contract",
+  "content": "现有 API 路径保持向后兼容",
+  "metadata": {"category": "decision"}
+}
+```
+
+#### Task History
+
+用于记录用户级任务执行历史，可通过 `project_id` 和 `session_id` 关联到项目与 Harness 会话。同一用户下 `task_id` 唯一，不同用户可使用相同 `task_id`。
+
+| 方法 | 路径 | 功能 |
+|---|---|---|
+| `GET` | `/memory/task-history` | 分页查询当前用户的任务历史，支持 `project_id`、`session_id`、`status`、`search` |
+| `GET` | `/memory/task-history/{id}` | 查询当前用户的任务详情 |
+| `POST` | `/memory/task-history` | 创建任务历史 |
+| `PATCH` | `/memory/task-history/{id}` | 修改任务历史或执行状态 |
+| `DELETE` | `/memory/task-history/{id}` | 删除任务历史 |
+
+状态枚举：`pending`、`running`、`completed`、`failed`、`cancelled`。创建或更新为终态且未提供 `completed_at` 时，服务自动记录当前时间；改回 `pending` 或 `running` 时自动清空 `completed_at`。
+
+```json
+{
+  "task_id": "task-20260821-001",
+  "project_id": "security-harness-plugin",
+  "session_id": "session-001",
+  "title": "模块化测试 API",
+  "task_input": "新增 Memory 插件联调接口",
+  "task_output": "接口和测试已完成",
+  "status": "completed",
+  "started_at": "2026-08-21T10:00:00+08:00",
+  "metadata": {"source": "harness"}
+}
+```
+
 ## 查询参数与错误码
 
 列表接口支持 `page`、`page_size`（最大 100）以及资源对应的 `search`、`status`、`severity`、`asset_id` 等过滤条件；具体定义和枚举可在 `/docs` 中直接试用。
@@ -269,6 +362,8 @@ DeepSeek Harness 只需以 HTTP 工具调用上述 Base URL，并在除登录、
 | `404` | 资源不存在 |
 | `409` | 唯一字段冲突或关联约束冲突 |
 | `422` | 请求字段校验失败或关联 ID 无效 |
+| `408/429` | 请求超时或上游限流（由网关或部署环境返回） |
+| `5xx` | 服务端或上游服务异常 |
 
 ## 测试
 
@@ -278,4 +373,3 @@ pytest -q
 ```
 
 测试使用临时 SQLite 文件，不会修改正式的 `data/security.db`。
-

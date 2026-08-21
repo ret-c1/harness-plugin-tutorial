@@ -1,3 +1,5 @@
+"""用户管理接口。"""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -6,21 +8,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.database import utc_now
 from app.dependencies import Db, require_action, require_admin
-from app.repository import (
-    commit_or_conflict,
-    ensure_row,
-    insert_record,
-    update_record,
-    user_from_row,
-)
-from app.schemas import (
-    Page,
+from app.modules.security.models import (
     PasswordReset,
     Role,
     UserCreate,
     UserRead,
     UserUpdate,
 )
+from app.modules.security.repository import (
+    commit_or_conflict,
+    ensure_row,
+    insert_record,
+    update_record,
+    user_from_row,
+)
+from app.schemas import Page
 from app.security import hash_password
 
 

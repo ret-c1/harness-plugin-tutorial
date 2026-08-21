@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, Query, Response, status
+
+from app.database import utc_now
+from app.dependencies import CurrentUser, Db
+from app.modules.memory.models import (
+    UserMemoryCreate,
+    UserMemoryRead,
+    UserMemoryUpdate,
+)
+from app.modules.memory.repository import (
+    delete_owned_record,
+    ensure_owned_row,
+    insert_record,
+    json_metadata,
+    record_from_row,
+    update_record,
+)
+from app.schemas import Page
+
+
+router = APIRouter(prefix="/user-memories", tags=["User Memory"])
+
+
+@router.get("", response_model=Page[UserMemoryRead], summary="查询当前用户的 User Memory")
+def list_user_memories(
+    current_user: CurrentUser,
+    db: Db,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, max_length=200, description="匹配 key 或 content"),
+) -> dict:
+    conditions = ["user_id = ?"]
+    params: list[object] = [current_user["id"]]
+    if search:
+        conditions.append("(memory_key LIKE ? OR content LIKE ?)")
+        params.extend([f"%{search}%"] * 2)
+    where = " AND ".join(conditions)
+    total = db.execute(
+        f"SELECT COUNT(*) AS count FROM user_memories WHERE {where}", params
+    ).fetchone()["count"]
+    rows = db.execute(
+        f"SELECT * FROM user_memories WHERE {where} "
+        "ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?",
+        (*params, page_size, (page - 1) * page_size),
+    ).fetchall()
+    return {
+        "items": [record_from_row(row) for row in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.post("", response_model=UserMemoryRead, status_code=201, summary="创建 User Memory")
+def create_user_memory(
+    payload: UserMemoryCreate,
+    current_user: CurrentUser,
+    db: Db,
+) -> dict:
+    data = payload.model_dump(mode="json")
+    data["memory_key"] = data.pop("key")
+    data["metadata"] = json_metadata(data["metadata"])
+    now = utc_now()
+    data.update(user_id=current_user["id"], created_at=now, updated_at=now)
+    memory_id = insert_record(
+        db,
+        "user_memories",
+        data,
+        "当前用户已存在相同 key 的 User Memory",
+    )
+    return record_from_row(
+        ensure_owned_row(db, "user_memories", memory_id, current_user["id"], "User Memory")
+    )
+
+
+@router.get("/{memory_id}", response_model=UserMemoryRead, summary="查询 User Memory 详情")
+def get_user_memory(memory_id: int, current_user: CurrentUser, db: Db) -> dict:
+    return record_from_row(
+        ensure_owned_row(db, "user_memories", memory_id, current_user["id"], "User Memory")
+    )
+
+
+@router.patch("/{memory_id}", response_model=UserMemoryRead, summary="修改 User Memory")
+def update_user_memory(
+    memory_id: int,
+    payload: UserMemoryUpdate,
+    current_user: CurrentUser,
+    db: Db,
+) -> dict:
+    ensure_owned_row(db, "user_memories", memory_id, current_user["id"], "User Memory")
+    data = payload.model_dump(mode="json", exclude_unset=True)
+    if not data:
+        raise HTTPException(status_code=400, detail="至少提供一个要修改的字段")
+    if any(value is None for value in data.values()):
+        raise HTTPException(status_code=422, detail="User Memory 字段不能为 null")
+    if "key" in data:
+        data["memory_key"] = data.pop("key")
+    if "metadata" in data:
+        data["metadata"] = json_metadata(data["metadata"])
+    data["updated_at"] = utc_now()
+    update_record(
+        db,
+        "user_memories",
+        memory_id,
+        current_user["id"],
+        data,
+        "当前用户已存在相同 key 的 User Memory",
+    )
+    return record_from_row(
+        ensure_owned_row(db, "user_memories", memory_id, current_user["id"], "User Memory")
+    )
+
+
+@router.delete("/{memory_id}", status_code=204, summary="删除 User Memory")
+def delete_user_memory(memory_id: int, current_user: CurrentUser, db: Db) -> Response:
+    delete_owned_record(db, "user_memories", memory_id, current_user["id"], "User Memory")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

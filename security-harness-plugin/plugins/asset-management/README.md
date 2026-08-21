@@ -13,6 +13,38 @@ DeepSeek Harness 的只读资产管理插件。插件连接网络安全资产 AP
 
 凭据只通过环境变量注入，不要写入仓库。
 
+## 实时数据与记忆使用规则
+
+插件会向 Harness 系统提示词注册资产数据真实性规则，并在每个工具描述和失败结果中重复关键约束。插件只缓存登录 Token，不缓存资产、漏洞、安全事件或统计结果。
+
+| 场景 | 处理规则 |
+| --- | --- |
+| 当前资产清单、详情、数量、状态、责任人、漏洞、事件、统计和风险判断 | 必须调用接口，以本轮成功结果为唯一事实来源 |
+| 用户在前文给出的资产 ID、名称和筛选条件 | 可以从会话记忆读取，用于组织本轮接口参数，但不能视为已经过接口验证的当前事实 |
+| 资产管理、安全风险等通用概念 | 不依赖当前业务数据时可以使用模型知识回答 |
+| 用户明确要求回顾先前查询结果 | 可以复述，但必须说明是历史结果，不代表当前状态 |
+| 工具成功返回空列表 | 如实说明没有匹配数据，不得用记忆补齐 |
+| 实时接口调用失败 | 告知用户接口失败及简要原因，不得使用记忆、历史工具结果或模型知识代替本次数据 |
+| 多接口调用部分失败 | 只使用成功部分，并明确指出哪些部分未验证，不推断失败部分 |
+
+后续问题只要要求当前状态、重新统计、比较最新变化或重新评估风险，就需要再次调用接口。
+
+## 接口错误处理
+
+HTTP `2xx` 且响应为有效 JSON 时才视为成功。其他情况按以下规则处理：
+
+| 情况 | 插件行为 |
+| --- | --- |
+| 业务接口返回 `401` | 清除缓存 Token，重新登录并重试一次原请求；仍失败则报错 |
+| 登录失败或 `403` | 明确报告认证失败或权限不足，不重试业务请求 |
+| `400/404/409/422` | 保留 HTTP 状态和接口错误详情，直接报告参数、资源或数据问题 |
+| `408/429/5xx` | 明确报告超时、限流或服务端异常，不返回历史数据 |
+| 网络不可达、连接失败 | 报告无法连接资产服务，并提示检查服务状态、地址和网络 |
+| 调用被取消或超时 | 报告请求已取消或超时，不返回不完整结果 |
+| `2xx` 但响应为空、不是 JSON 或不符合插件要求 | 按接口响应格式错误处理，不将内容当作成功数据 |
+
+所有工具错误都会作为 Harness 的失败结果返回。除参数错误可由 Harness 修正后重新调用外，涉及接口状态的错误必须呈现给用户。
+
 ## 开发
 
 从 workspace 根目录执行：
@@ -20,16 +52,17 @@ DeepSeek Harness 的只读资产管理插件。插件连接网络安全资产 AP
 ```sh
 pnpm --filter @security-harness/asset-management run check
 pnpm --filter @security-harness/asset-management run build
+pnpm --filter @security-harness/asset-management run test
 ```
 
-本地源码注册路径：
+在 workspace 根目录中，本地源码相对路径为：
 
 ```text
-/Users/fan/Documents/workspace/security-harness-plugin/plugins/asset-management/src/index.ts
+plugins/asset-management/src/index.ts
 ```
 
 也可以把本子包作为 bundle 安装到 Harness profile：
 
 ```sh
-pnpm dsh plugin --profile web add /Users/fan/Documents/workspace/security-harness-plugin/plugins/asset-management
+pnpm dsh plugin --profile web add "$(pwd)/plugins/asset-management"
 ```

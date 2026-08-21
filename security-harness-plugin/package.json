@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "build": "pnpm --recursive run build",
-    "check": "pnpm --recursive run check"
+    "check": "pnpm --recursive run check",
+    "test": "pnpm --recursive run test"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

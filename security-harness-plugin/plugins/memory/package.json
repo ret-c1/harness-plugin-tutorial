@@ -1,7 +1,7 @@
 {
-  "name": "@security-harness/asset-management",
+  "name": "@security-harness/memory",
   "version": "0.1.0",
-  "description": "Read-only asset-management tools for DeepSeek Harness",
+  "description": "User-scoped memory tools for DeepSeek Harness",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",

@@ -1,3 +1,5 @@
+"""安全事件管理接口。"""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -6,7 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.database import utc_now
 from app.dependencies import Db, require_action
-from app.repository import (
+from app.modules.security.models import (
+    SecurityEventCreate,
+    SecurityEventRead,
+    SecurityEventUpdate,
+    Severity,
+    WorkflowStatus,
+)
+from app.modules.security.repository import (
     commit_or_conflict,
     ensure_row,
     event_from_row,
@@ -14,14 +23,7 @@ from app.repository import (
     replace_asset_links,
     update_record,
 )
-from app.schemas import (
-    Page,
-    SecurityEventCreate,
-    SecurityEventRead,
-    SecurityEventUpdate,
-    Severity,
-    WorkflowStatus,
-)
+from app.schemas import Page
 
 
 router = APIRouter(prefix="/security-events", tags=["安全事件管理"])
@@ -155,4 +157,3 @@ def delete_security_event(
     db.execute("DELETE FROM security_events WHERE id = ?", (event_id,))
     commit_or_conflict(db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
