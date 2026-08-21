@@ -27,13 +27,10 @@ cd mock-service-api
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
-
-cp .env.example .env
-set -a
-source .env
-set +a
 python3 run.py
 ```
+
+以上命令使用项目内置的本地开发配置。需要修改数据库路径、JWT 密钥或其他运行参数时，再参考 [`mock-service-api/README.md`](mock-service-api/README.md) 配置环境变量。
 
 服务默认监听 `http://127.0.0.1:8000`：
 
