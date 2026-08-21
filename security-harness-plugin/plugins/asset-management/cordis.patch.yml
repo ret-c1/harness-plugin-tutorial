@@ -1,0 +1,9 @@
+# Credentials are required at startup; keep them in environment variables.
+- insert:
+    - id: asset-management
+      name: '@security-harness/asset-management'
+      config:
+        baseUrl: !!js process.env.ASSET_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
+        username: !!js process.env.ASSET_API_USERNAME
+        password: !!js process.env.ASSET_API_PASSWORD
+        timeoutMs: !!js Number(process.env.ASSET_API_TIMEOUT_MS ?? 15000)

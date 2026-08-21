@@ -1,0 +1,14 @@
+{
+  "name": "security-harness-plugins",
+  "version": "0.0.0",
+  "description": "Workspace for independently maintained DeepSeek Harness security plugins",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --recursive run build",
+    "check": "pnpm --recursive run check"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "packageManager": "pnpm@11.22.0"
+}
