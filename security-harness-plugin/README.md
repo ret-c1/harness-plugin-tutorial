@@ -13,10 +13,12 @@ security-harness-plugin/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   └── memory/
-│       ├── src/index.ts
+│       ├── src/index.ts                    # 服务端工具
+│       ├── src/client/                     # Web Memory Inspector
 │       ├── cordis.patch.yml
 │       ├── package.json
-│       └── tsconfig.json
+│       ├── tsconfig.json
+│       └── tsconfig.client.json
 ├── package.json
 ├── pnpm-workspace.yaml
 └── pnpm-lock.yaml
@@ -42,7 +44,7 @@ security-harness-plugin/
 | 插件 | 用途 | 数据边界 |
 | --- | --- | --- |
 | [`asset-management`](plugins/asset-management/README.md) | 资产查询、统计与风险评估 | 只读，实时状态必须以本轮 API 为准 |
-| [`memory`](plugins/memory/README.md) | User Memory、Project Memory 和 Task History | 可读写，一个实例只绑定一个 API 用户 |
+| [`memory`](plugins/memory/README.md) | User Memory、Project Memory、Task History 和逐轮 Memory Inspector | 可读写，一个实例只绑定一个 API 用户 |
 
 ## 开发
 
@@ -67,7 +69,7 @@ pnpm --filter @security-harness/memory run build
 pnpm --filter @security-harness/memory run test
 ```
 
-DeepSeek Harness 源码仓库中的 `scratch-plugin/cordis.yml` 只保存本地开发所需的插件注册行。每增加一个插件，就在那里增加一条指向本仓库对应 `plugins/<name>/src/index.ts` 的注册；业务实现不再进入 Harness 仓库。
+DeepSeek Harness 源码仓库中的 `scratch-plugin/cordis.yml` 只保存本地开发所需的插件注册行。纯服务端插件可以指向 `plugins/<name>/src/index.ts`；声明了 `dsh.client` 的插件必须先构建、在目标 Harness profile 的 `node_modules` 中建立本地包软链接，再使用 npm 包名注册，否则 Loader 和 Harness Web 无法从 `package.json` 发现客户端 bundle。业务实现不进入 Harness 仓库。
 
 生产或独立 profile 使用每个子包自己的 `dsh.bundle`：
 

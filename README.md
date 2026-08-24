@@ -2,7 +2,7 @@
 
 本项目用于独立维护基于 DeepSeek Harness 框架开发的安全领域插件。插件代码与 Harness 主仓库解耦，便于单独开发、测试、构建和发布。
 
-仓库目前包含资产管理和 Memory 两个插件，以及一套供本地开发和联调使用的模块化 API。资产管理插件提供资产查询、统计和风险评估；Memory 插件提供按用户隔离的 User Memory、Project Memory 和 Task History。
+仓库目前包含资产管理和 Memory 两个插件，以及一套供本地开发和联调使用的模块化 API。资产管理插件提供资产查询、统计和风险评估；Memory 插件提供按用户隔离的 User Memory、Project Memory、Task History，以及逐轮展示召回与行为链路的 Memory Inspector。
 
 ## 项目结构
 
@@ -138,7 +138,7 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 
 ### Memory
 
-Memory 插件提供三组工具：
+Memory 插件提供三组 CRUD 工具和两个召回链路工具：
 
 | 类型 | 定义 | 工具前缀 |
 | --- | --- | --- |
@@ -147,6 +147,8 @@ Memory 插件提供三组工具：
 | Task History | 当前用户的任务执行历史，不代表当前事实或长期指令 | `task_history_*` |
 
 每组都包含 list、get、create、update 和 delete 工具。工具不接受 `user_id`；API 根据 Bearer Token 确定当前用户，插件还会通过 `/auth/me` 和响应中的 `user_id` 校验数据归属。一个插件实例只能绑定一个 API 用户；多用户 Harness 必须按用户拆分 scoped 实例或 profile。
+
+`memory_recall` 只产生候选，`memory_context_apply` 会重新读取并明确标记本轮实际使用的 Memory。Harness Web 的三栏 Memory Inspector 会展示候选快照、已应用/未应用状态，以及应用后的非 Memory 工具名称与参数，便于观察 Memory 是否真正影响了 Agent 行为。客户端面板需要按 npm 包名安装或链接插件；仅从绝对 `src/index.ts` 路径挂载时只能加载服务端工具。具体联调步骤见 [`memory/README.md`](security-harness-plugin/plugins/memory/README.md)。
 
 只有用户明确要求记住、更新、遗忘，或工作流明确要求记录任务历史时，才执行 Memory 写操作。接口返回非 `2xx`、认证重试失败、网络或超时错误、JSON 格式异常、用户归属不匹配时，Harness 必须说明本次记忆读写未完成，不能用模型记忆、会话上下文或旧工具结果伪造成功。
 

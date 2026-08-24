@@ -1,6 +1,6 @@
 # Memory Plugin
 
-为 DeepSeek Harness 提供基于 HTTP API 的用户隔离记忆能力。插件注册 User Memory、Project Memory 和 Task History 三组共 15 个 CRUD 工具，并在调用前验证当前 API 身份、在调用后校验响应数据归属。
+为 DeepSeek Harness 提供基于 HTTP API 的用户隔离记忆能力。插件注册 User Memory、Project Memory 和 Task History 三组共 15 个 CRUD 工具，以及 2 个可观测召回工具；同时在 Harness Web 中提供逐轮 Memory Inspector。所有 API 调用都会验证当前身份和响应数据归属。
 
 ## 三类数据
 
@@ -47,6 +47,15 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 
 ## 工具
 
+Memory 的使用链路由两个只读工具显式完成：
+
+| 工具 | 作用 | 是否算作“本轮已使用” |
+| --- | --- | --- |
+| `memory_recall` | 从三类 Memory 检索候选，并记录本轮查询目的 | 否；命中仅表示候选被召回 |
+| `memory_context_apply` | 重新读取明确选中的候选，校验当前用户归属和最新内容，并说明使用原因、预期影响 | 是；只有成功返回的记录才算已使用 |
+
+`memory_recall.query` 用于记录为什么发起本轮召回；`search` 才是传给 API 的精简关键词。省略 `search` 时，每个选中类别最多返回最近 `limit` 条记录。`memory_context_apply` 是只读操作，不会创建或修改 Memory。
+
 | 类型 | 查询列表 | 查询详情 | 创建 | 修改 | 删除 |
 | --- | --- | --- | --- | --- | --- |
 | User Memory | `user_memory_list` | `user_memory_get` | `user_memory_create` | `user_memory_update` | `user_memory_delete` |
@@ -61,6 +70,49 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 - 删除必须有明确对象和意图，不能根据过期、冲突或不确定内容自行删除。
 - 不保存密码、Token、密钥及其他敏感凭据。
 - User Memory、Project Memory 和 Task History 不互相替代；需要哪一类上下文，就查询哪一类。
+
+## Memory Inspector
+
+安装插件的浏览器端模块后，Harness Web 会在发生 Memory 召回的会话轮次末尾显示三栏 Inspector：
+
+```text
+Memory Store          Recalled Memory        Agent Action
+候选记忆快照           ✓ 本轮已应用             应用后的非 Memory Tool
+                      × 候选但未应用           调用名称和参数
+```
+
+面板展示的是一条可审计链路：
+
+```text
+Memory Store → Search / Recall → Context Apply → Agent Action
+```
+
+- `Memory Store` 是本轮 `memory_recall` 返回的候选快照，并不是账号内所有记录。
+- `Recalled Memory` 以 `memory_context_apply` 的成功结果作为“已使用”的唯一依据；候选未被选择时显示 `×`。
+- `Agent Action` 记录成功应用 Memory 后发起的非 Memory 工具调用及其参数。它证明调用发生在应用之后，但不把时间顺序夸大为严格因果证明；`intended_effect` 会同时显示 Agent 声明的预期影响。
+- 如果记录的 `metadata.source` 为 `explicit`、`agent` 或 `workflow`，以及 `metadata.status` 为 `active`、`expired` 或 `superseded`，面板会显示对应来源和状态。插件目前只展示这些可选字段，不会自动改写状态或创建历史版本。
+- Inspector 数据来自已持久化的工具展示元数据；浏览器不会持有 Memory API 用户名、密码或 Token，也不会绕过当前用户隔离重新请求 API。
+
+只用绝对 `src/index.ts` 路径可以加载插件的服务端工具，但 Harness 的 Web 客户端模块扫描依赖 npm 包名和 `package.json`。本地源码联调时，先构建插件并在目标 Harness profile 的 `node_modules` 中建立本地软链接，再在 `scratch-plugin/cordis.yml` 中使用包名。以下以默认 web profile 为例；`DSH_HOME` 未设置时通常是 `~/.dsh`：
+
+```sh
+cd /path/to/harness-plugin/security-harness-plugin
+pnpm --filter @security-harness/memory run build
+
+mkdir -p "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/@security-harness"
+ln -sfn /path/to/harness-plugin/security-harness-plugin/plugins/memory \
+  "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/@security-harness/memory"
+```
+
+```yaml
+- id: memory
+  name: '@security-harness/memory'
+  config:
+    baseUrl: !!js process.env.MEMORY_API_BASE_URL
+    username: !!js process.env.MEMORY_API_USERNAME
+    password: !!js process.env.MEMORY_API_PASSWORD
+    timeoutMs: !!js Number(process.env.MEMORY_API_TIMEOUT_MS)
+```
 
 ## 接口异常处理
 

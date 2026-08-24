@@ -63,16 +63,139 @@ function execution(agentId) {
 
 test('defines three memory categories and never exposes a user selector', () => {
   const { tools, sections } = setup()
-  assert.equal(tools.size, 15)
+  assert.equal(tools.size, 17)
   assert.equal(sections.length, 1)
   assert.match(sections[0].text, /User Memory 保存当前认证用户跨项目生效/)
   assert.match(sections[0].text, /Project Memory 保存当前认证用户在指定项目中的约定/)
   assert.match(sections[0].text, /Task History 只记录任务执行历史/)
   assert.match(sections[0].text, /不得要求、推断或构造其他用户 ID/)
+  assert.match(sections[0].text, /先调用 memory_recall 查询候选记忆/)
+  assert.match(sections[0].text, /必须调用 memory_context_apply/)
 
   for (const definition of tools.values()) {
     assert.doesNotMatch(JSON.stringify(definition.parameters), /user_id/)
   }
+})
+
+test('recalls candidates from all three stores with inspector metadata', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  const { tools } = setup()
+  const requests = []
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url, init })
+    if (requests.length === 1) return loginResponse()
+    if (requests.length === 2) return identityResponse()
+    if (requests.length === 3) {
+      return jsonResponse(200, {
+        items: [{
+          id: 10,
+          user_id: 2,
+          key: 'risk_preference',
+          content: '只关注 critical/high',
+          metadata: { source: 'explicit', status: 'active' },
+          updated_at: '2026-08-24T00:00:00Z',
+        }],
+        total: 1,
+      })
+    }
+    if (requests.length === 4) {
+      return jsonResponse(200, {
+        items: [{
+          id: 20,
+          user_id: 2,
+          project_id: 'harness-plugin',
+          key: 'critical_asset_rule',
+          content: '核心资产 critical 优先',
+          metadata: {},
+        }],
+        total: 1,
+      })
+    }
+    return jsonResponse(200, {
+      items: [{
+        id: 30,
+        user_id: 2,
+        task_id: 'asset-001',
+        project_id: 'harness-plugin',
+        title: '检查资产风险',
+        task_input: '检查资产风险',
+        task_output: '存在 2 个 critical 漏洞',
+        status: 'completed',
+        metadata: {},
+      }],
+      total: 1,
+    })
+  }
+
+  const definition = tools.get('memory_recall')
+  const value = await definition.execute({
+    query: '帮我看看资产风险',
+    search: 'risk',
+    project_id: 'harness-plugin',
+  }, execution('session-001'))
+
+  assert.deepEqual(value.categories, ['user', 'project', 'task'])
+  assert.deepEqual(value.candidates.map(candidate => candidate.ref), ['user:10', 'project:20', 'task:30'])
+  assert.equal(value.candidates[0].source, 'explicit')
+  assert.equal(value.candidates[0].memory_status, 'active')
+  assert.match(requests[2].url, /memory\/user-memories\?page=1&page_size=10&search=risk/)
+  assert.match(requests[3].url, /memory\/project-memories\?.*project_id=harness-plugin/)
+  assert.match(requests[4].url, /memory\/task-history\?.*project_id=harness-plugin/)
+
+  const meta = definition.output.presentationMeta({}, value)
+  assert.equal(meta.kind, 'memory-inspector')
+  assert.equal(meta.phase, 'recall')
+  assert.equal(meta.items.length, 3)
+})
+
+test('applies only explicitly selected current-user memories', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  const { tools } = setup()
+  const requests = []
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url, init })
+    if (requests.length === 1) return loginResponse()
+    if (requests.length === 2) return identityResponse()
+    if (requests.length === 3) {
+      return jsonResponse(200, {
+        id: 10,
+        user_id: 2,
+        key: 'risk_preference',
+        content: '只关注 critical/high',
+        metadata: { source: 'explicit' },
+      })
+    }
+    return jsonResponse(200, {
+      id: 20,
+      user_id: 2,
+      project_id: 'harness-plugin',
+      key: 'critical_asset_rule',
+      content: '核心资产 critical 优先',
+      metadata: {},
+    })
+  }
+
+  const definition = tools.get('memory_context_apply')
+  const value = await definition.execute({
+    memories: [
+      { category: 'user', id: 10 },
+      { category: 'project', id: 20 },
+      { category: 'user', id: 10 },
+    ],
+    reason: '风险偏好和项目规则与本轮资产分析相关',
+    intended_effect: '后续资产查询只关注 critical/high，并优先核心资产',
+  }, execution('session-001'))
+
+  assert.equal(value.session_id, 'session-001')
+  assert.deepEqual(value.memories.map(memory => memory.ref), ['user:10', 'project:20'])
+  assert.equal(requests[2].url, 'http://memory.test/api/v1/memory/user-memories/10')
+  assert.equal(requests[3].url, 'http://memory.test/api/v1/memory/project-memories/20')
+  const meta = definition.output.presentationMeta({}, value)
+  assert.equal(meta.phase, 'apply')
+  assert.equal(meta.reason, '风险偏好和项目规则与本轮资产分析相关')
+  assert.equal(meta.items.length, 2)
 })
 
 test('creates User Memory as the authenticated user without sending user_id', async (t) => {

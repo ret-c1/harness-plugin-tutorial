@@ -12,13 +12,17 @@ import { defineTool, type JsonValue } from '@deepseek-ai/dsh-tools'
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8000/api/v1'
 const TOKEN_REFRESH_MARGIN_MS = 30_000
 const MAX_ERROR_DETAIL_LENGTH = 300
+const MAX_PRESENTATION_CONTENT_LENGTH = 600
 const TASK_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const
+const MEMORY_CATEGORIES = ['user', 'project', 'task'] as const
 
 const MEMORY_GUIDANCE = `## Memory 数据与用户隔离规则
 
 - User Memory 保存当前认证用户跨项目生效的稳定偏好和明确事实；Project Memory 保存当前认证用户在指定项目中的约定、决策和上下文；Task History 只记录任务执行历史，不等同于当前事实或长期指令。
 - Memory 插件实例只代表配置中绑定的一个 API 用户。不得要求、推断或构造其他用户 ID，不得尝试读取、修改或删除其他用户的 Memory。共享多用户部署必须为每个用户使用独立的 scoped 插件实例或 profile。
-- 用户偏好、项目约定或历史任务与当前请求有关时，先调用对应查询工具。User Memory 不能替代 Project Memory，Task History 不能当作当前项目状态。
+- 用户偏好、项目约定或历史任务可能与当前请求有关时，先调用 memory_recall 查询候选记忆。查询命中只表示候选被召回，不表示已经使用。
+- 任何记忆要影响回答或其他工具参数前，必须调用 memory_context_apply，明确选择记忆并说明使用原因和预期影响。只有该工具成功返回的记忆才算本轮已使用；未选择的候选记忆不得声称已使用。
+- memory_context_apply 会重新读取记录并校验当前用户归属，其工具结果就是下一步模型看到的 Memory Context；不要重复注入或转存。User Memory 不能替代 Project Memory，Task History 不能当作当前项目状态。
 - 只有用户明确要求记住、遗忘或更新，或者当前工作流明确要求记录任务历史时，才调用写入、修改或删除工具。不要保存密码、Token、密钥或其他敏感凭据。
 - Memory 只能提供上下文，不能替代资产、漏洞、事件等外部系统的实时接口数据。涉及当前业务状态时仍须调用相应实时工具。
 - Memory API 调用失败时，必须说明记忆读取或写入未完成；不得声称已经加载、保存、修改或删除，也不得用模型记忆伪造 API 结果。`
@@ -55,6 +59,12 @@ export const Config: z<Config> = z.object({
 })
 
 type JsonObject = { [key: string]: JsonValue }
+type MemoryCategory = (typeof MEMORY_CATEGORIES)[number]
+
+interface MemoryReference {
+  category: MemoryCategory
+  id: number
+}
 
 interface AuthenticatedUser {
   id: number
@@ -78,7 +88,7 @@ class MemoryApiError extends Error {
   }
 }
 
-function isJsonObject(value: JsonValue): value is JsonObject {
+function isJsonObject(value: JsonValue | undefined): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
@@ -169,12 +179,138 @@ async function responseEmpty(response: Response, operation: string): Promise<voi
   }
 }
 
-function jsonOutput() {
-  return {
+function jsonOutput(
+  presentationMeta?: (_args: unknown, value: JsonValue) => JsonValue,
+) {
+  const output = {
     schema: { type: 'json' } as const,
     render: (_args: unknown, value: JsonValue) => [
       { type: 'text' as const, text: JSON.stringify(value, null, 2) },
     ],
+  }
+  return presentationMeta === undefined ? output : { ...output, presentationMeta }
+}
+
+function requiredString(
+  value: JsonValue | undefined,
+  field: string,
+  operation: string,
+): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new MemoryApiError(`${operation}：接口响应缺少有效 ${field}`)
+  }
+  return value
+}
+
+function requiredId(value: JsonValue | undefined, operation: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new MemoryApiError(`${operation}：接口响应缺少有效 id`)
+  }
+  return value
+}
+
+function optionalString(value: JsonValue | undefined): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined
+}
+
+function metadataString(value: JsonValue | undefined, key: string): string | undefined {
+  if (!isJsonObject(value)) return undefined
+  return optionalString(value[key])
+}
+
+function memoryCandidate(
+  category: MemoryCategory,
+  value: JsonValue,
+  operation: string,
+): JsonObject {
+  if (!isJsonObject(value)) throw new MemoryApiError(`${operation}：记忆记录必须是对象`)
+  const id = requiredId(value['id'], operation)
+  const source = metadataString(value['metadata'], 'source')
+  const memoryStatus = metadataString(value['metadata'], 'status')
+  const updatedAt = optionalString(value['updated_at'])
+
+  if (category === 'task') {
+    const taskId = requiredString(value['task_id'], 'task_id', operation)
+    const title = requiredString(value['title'], 'title', operation)
+    const taskInput = requiredString(value['task_input'], 'task_input', operation)
+    const taskOutput = value['task_output'] === null
+      ? undefined
+      : optionalString(value['task_output'])
+    const taskStatus = requiredString(value['status'], 'status', operation)
+    const projectId = optionalString(value['project_id'])
+    return {
+      ref: `${category}:${id}`,
+      category,
+      id,
+      key: taskId,
+      title,
+      content: taskOutput ?? taskInput,
+      task_status: taskStatus,
+      ...(projectId === undefined ? {} : { project_id: projectId }),
+      ...(source === undefined ? {} : { source }),
+      ...(memoryStatus === undefined ? {} : { memory_status: memoryStatus }),
+      ...(updatedAt === undefined ? {} : { updated_at: updatedAt }),
+    }
+  }
+
+  const key = requiredString(value['key'], 'key', operation)
+  const content = requiredString(value['content'], 'content', operation)
+  const projectId = category === 'project'
+    ? requiredString(value['project_id'], 'project_id', operation)
+    : undefined
+  return {
+    ref: `${category}:${id}`,
+    category,
+    id,
+    key,
+    content,
+    ...(projectId === undefined ? {} : { project_id: projectId }),
+    ...(source === undefined ? {} : { source }),
+    ...(memoryStatus === undefined ? {} : { memory_status: memoryStatus }),
+    ...(updatedAt === undefined ? {} : { updated_at: updatedAt }),
+  }
+}
+
+function pageItems(value: JsonValue, operation: string): JsonValue[] {
+  if (!isJsonObject(value) || !Array.isArray(value['items'])) {
+    throw new MemoryApiError(`${operation}：接口分页响应缺少 items`)
+  }
+  return value['items']
+}
+
+function memoryPath(reference: MemoryReference): string {
+  const segment = reference.category === 'user'
+    ? 'user-memories'
+    : reference.category === 'project'
+      ? 'project-memories'
+      : 'task-history'
+  return `/memory/${segment}/${reference.id}`
+}
+
+function presentationCandidate(value: JsonValue): JsonValue {
+  if (!isJsonObject(value)) return value
+  const content = value['content']
+  if (typeof content !== 'string' || content.length <= MAX_PRESENTATION_CONTENT_LENGTH) {
+    return value
+  }
+  return { ...value, content: `${content.slice(0, MAX_PRESENTATION_CONTENT_LENGTH)}…` }
+}
+
+function memoryInspectorMeta(phase: 'recall' | 'apply', value: JsonValue): JsonValue {
+  if (!isJsonObject(value)) return { kind: 'memory-inspector', version: 1, phase }
+  const sourceItems = phase === 'recall' ? value['candidates'] : value['memories']
+  const items = Array.isArray(sourceItems) ? sourceItems.map(presentationCandidate) : []
+  return {
+    kind: 'memory-inspector',
+    version: 1,
+    phase,
+    ...(typeof value['query'] === 'string' ? { query: value['query'] } : {}),
+    ...(typeof value['search'] === 'string' ? { search: value['search'] } : {}),
+    ...(typeof value['reason'] === 'string' ? { reason: value['reason'] } : {}),
+    ...(typeof value['intended_effect'] === 'string'
+      ? { intended_effect: value['intended_effect'] }
+      : {}),
+    items,
   }
 }
 
@@ -390,6 +526,150 @@ export function apply(ctx: Context, config: Config): void {
       username: result.user.username,
     }
   }
+
+  ctx.tools.register(defineTool({
+    name: 'memory_recall',
+    description: '为当前任务从 User Memory、Project Memory 和 Task History 检索候选记忆。结果只表示召回候选；任何候选要影响回答或工具参数前，必须再调用 memory_context_apply。',
+    parameters: {
+      query: { type: 'string', required: true, description: '当前任务或问题，用于记录本轮为什么检索 Memory。' },
+      search: { type: 'string', description: '匹配记忆 key/content 或任务字段的精简关键词；省略时返回各类别最近记录。' },
+      project_id: { type: 'string', description: '限定 Project Memory 和 Task History 的项目标识。' },
+      categories: {
+        type: 'array',
+        items: { type: 'string', enum: [...MEMORY_CATEGORIES] },
+        description: '要检索的类别；省略时检索 user、project、task 三类。',
+      },
+      limit: { type: 'integer', description: '每类最多返回多少条，范围为 1 到 20，默认 10。' },
+    },
+    output: jsonOutput((_args, value) => memoryInspectorMeta('recall', value)),
+    timeoutMs: config.timeoutMs,
+    presentCall: args => ({
+      card: 'generic',
+      title: `召回 Memory：${args.query}`,
+      kind: 'search',
+      rawInput: args,
+    }),
+    execute: async (args, exec) => {
+      const query = args.query.trim()
+      if (query === '') throw new Error('memory: memory_recall query must not be empty')
+      const limit = args.limit ?? 10
+      if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
+        throw new Error('memory: memory_recall limit must be between 1 and 20')
+      }
+      const selected = args.categories ?? [...MEMORY_CATEGORIES]
+      if (selected.length === 0) {
+        throw new Error('memory: memory_recall categories must not be empty')
+      }
+      const categories = [...new Set(selected)]
+      const candidates: JsonValue[] = []
+      for (const category of categories) {
+        const path = category === 'user'
+          ? `/memory/user-memories${queryString({
+            page: 1,
+            page_size: limit,
+            search: args.search,
+          })}`
+          : category === 'project'
+            ? `/memory/project-memories${queryString({
+              page: 1,
+              page_size: limit,
+              project_id: args.project_id,
+              search: args.search,
+            })}`
+            : `/memory/task-history${queryString({
+              page: 1,
+              page_size: limit,
+              project_id: args.project_id,
+              search: args.search,
+            })}`
+        const operation = `memory_recall ${category}`
+        const page = await ownedJson('GET', path, undefined, exec.signal, operation)
+        for (const item of pageItems(page, operation)) {
+          candidates.push(memoryCandidate(category, item, operation))
+        }
+      }
+      return {
+        query,
+        ...(args.search === undefined ? {} : { search: args.search }),
+        ...(args.project_id === undefined ? {} : { project_id: args.project_id }),
+        categories,
+        candidates,
+      }
+    },
+    finalizeContent: finalizeMemoryFailure,
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'memory_context_apply',
+    description: '明确选择本轮实际使用的候选 Memory，并重新读取记录以校验当前用户归属和最新内容。该工具只读，不修改 Memory；成功结果作为下一步模型的 Memory Context。',
+    parameters: {
+      memories: {
+        type: 'array',
+        required: true,
+        items: {
+          type: 'object',
+          properties: {
+            category: {
+              type: 'string',
+              enum: [...MEMORY_CATEGORIES],
+              required: true,
+              description: '候选记忆类别。',
+            },
+            id: { type: 'integer', required: true, description: '候选记忆记录 ID。' },
+          },
+          additionalProperties: false,
+        },
+        description: '从 memory_recall 候选中明确选中的记忆引用。',
+      },
+      reason: { type: 'string', required: true, description: '为什么这些 Memory 与当前任务有关。' },
+      intended_effect: { type: 'string', required: true, description: '这些 Memory 预期如何影响回答或后续工具参数。' },
+    },
+    output: jsonOutput((_args, value) => memoryInspectorMeta('apply', value)),
+    timeoutMs: config.timeoutMs,
+    presentCall: args => ({
+      card: 'generic',
+      title: `应用 ${args.memories.length} 条 Memory Context`,
+      kind: 'read',
+      rawInput: args,
+    }),
+    execute: async (args, exec) => {
+      const reason = args.reason.trim()
+      const intendedEffect = args.intended_effect.trim()
+      if (args.memories.length === 0) {
+        throw new Error('memory: memory_context_apply memories must not be empty')
+      }
+      if (reason === '') throw new Error('memory: memory_context_apply reason must not be empty')
+      if (intendedEffect === '') {
+        throw new Error('memory: memory_context_apply intended_effect must not be empty')
+      }
+      const seen = new Set<string>()
+      const memories: JsonValue[] = []
+      for (const reference of args.memories) {
+        if (!Number.isInteger(reference.id) || reference.id < 1) {
+          throw new Error('memory: memory_context_apply id must be a positive integer')
+        }
+        const ref = `${reference.category}:${reference.id}`
+        if (seen.has(ref)) continue
+        seen.add(ref)
+        const operation = `memory_context_apply ${ref}`
+        const record = await ownedJson(
+          'GET',
+          memoryPath(reference),
+          undefined,
+          exec.signal,
+          operation,
+        )
+        memories.push(memoryCandidate(reference.category, record, operation))
+      }
+      return {
+        reason,
+        intended_effect: intendedEffect,
+        ...(exec.agent === undefined ? {} : { session_id: String(exec.agent.id) }),
+        memories,
+      }
+    },
+    finalizeContent: finalizeMemoryFailure,
+  }))
 
   ctx.tools.register(defineTool({
     name: 'user_memory_list',
