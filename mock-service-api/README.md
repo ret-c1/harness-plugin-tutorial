@@ -10,10 +10,10 @@
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
-
-export JWT_SECRET='替换为至少 32 字节的随机字符串'
 python3 run.py
 ```
+
+服务启动时会自动读取项目根目录的 `.env`，无需手动执行 `export`。首次运行前复制 `.env.example` 为 `.env`，并将 `JWT_SECRET` 替换为至少 32 字节的随机值；`.env` 已被 Git 忽略，不应提交。操作系统环境变量的优先级高于 `.env`，可用于部署时覆盖本地配置。
 
 也可以使用 Uvicorn 启动并启用热更新：
 
@@ -53,7 +53,7 @@ SQLite 文件默认创建在 `./data/security.db`。可通过环境变量修改�
 | `CORS_ORIGINS` | `*` | 逗号分隔的允许来源 |
 | `APP_NAME` | `DeepSeek Harness Security API` | OpenAPI 服务名称 |
 
-仓库提供了 [.env.example](.env.example)。项目不自动加载 `.env`；需要用部署环境注入变量，或在本地执行 `set -a; source .env; set +a` 后启动。
+仓库提供了 [.env.example](.env.example)。应用自动加载同目录下未提交的 `.env`；生产环境仍应通过部署系统注入配置，并利用系统环境变量覆盖本地文件。
 
 ## 初始账号
 

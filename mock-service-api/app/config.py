@@ -4,6 +4,12 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+
 
 def _as_bool(value: str | None, default: bool) -> bool:
     if value is None:
@@ -33,4 +39,3 @@ def get_settings() -> Settings:
         seed_default_users=_as_bool(os.getenv("SEED_DEFAULT_USERS"), True),
         cors_origins=[item.strip() for item in origins.split(",") if item.strip()],
     )
-

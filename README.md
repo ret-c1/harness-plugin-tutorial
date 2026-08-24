@@ -105,6 +105,12 @@ export MEMORY_API_PASSWORD='UserA@123'
 export MEMORY_API_TIMEOUT_MS='15000'
 ```
 
+使用 `scratch-plugin/cordis.yml` 挂载本地插件源码时，在 DeepSeek Harness 仓库根目录启动 Web 服务：
+
+```bash
+pnpm dsh web --patch ./scratch-plugin/cordis.yml --port 3080
+```
+
 将插件安装到目标 Harness profile：
 
 ```bash
