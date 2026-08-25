@@ -1,6 +1,7 @@
 lib/
 node_modules/
 .pnpm-store/
+.sandbox-demo/
 *.tgz
 *.tsbuildinfo
 .DS_Store

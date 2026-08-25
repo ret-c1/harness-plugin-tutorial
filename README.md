@@ -1,8 +1,8 @@
-# DeepSeek Harness Security Plugins
+# harness-plugin-tutorial
 
 本项目用于独立维护基于 DeepSeek Harness 框架开发的安全领域插件。插件代码与 Harness 主仓库解耦，便于单独开发、测试、构建和发布。
 
-仓库目前包含资产管理、Security Atomic 和 Memory 三个插件，以及一套供本地开发和联调使用的模块化 API。资产管理插件提供资产查询、统计和风险评估；Security Atomic 插件把资产、漏洞和事件拆成原子只读工具，用于测试 Agent Loop；Memory 插件提供按用户隔离的 User Memory、Project Memory、Task History，以及逐轮展示召回与行为链路的 Memory Inspector。
+仓库目前包含资产管理、Governance、Security Atomic、Sandbox Test 和 Memory 五个插件，以及一套供本地开发和联调使用的模块化 API。资产管理插件提供资产查询、统计和风险评估；Governance 插件用最小 `tools/pre-execute` 策略演示 allow、ask 和 deny；Security Atomic 插件把资产、漏洞和事件拆成原子只读工具，用于测试 Agent Loop；Sandbox Test 插件通过受控实验区内的 workspace 内外写入直观展示三种文件 Sandbox 模式；Memory 插件提供按用户隔离的 User Memory、Project Memory、Task History，以及逐轮展示召回与行为链路的 Memory Inspector。
 
 ## 项目结构
 
@@ -14,7 +14,9 @@
 └── security-harness-plugin/                  # pnpm 插件 workspace
     └── plugins/
         ├── asset-management/                 # 资产管理插件
+        ├── governance-plugin/                # 最小工具治理策略示例
         ├── memory/                           # 用户隔离 Memory 插件
+        ├── sandbox-test/                      # 可视化 Sandbox 边界 Demo
         └── security-atomic/                   # Agent Loop 原子安全工具
 ```
 
@@ -105,6 +107,10 @@ export SECURITY_ATOMIC_API_USERNAME='user_b'
 export SECURITY_ATOMIC_API_PASSWORD='UserB@123'
 export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
 
+# Sandbox Test 的专用 Demo 根目录；工具不接受模型路径或命令
+export SANDBOX_DEMO_ROOT='/path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo'
+export SANDBOX_TEST_TIMEOUT_MS='5000'
+
 # 每个 Memory 插件实例只绑定一个 API 用户
 export MEMORY_API_BASE_URL='http://127.0.0.1:8000/api/v1'
 export MEMORY_API_USERNAME='user_a'
@@ -122,7 +128,9 @@ pnpm dsh web --patch ./scratch-plugin/cordis.yml --port 3080
 
 ```bash
 pnpm dsh plugin --profile web add "$(pwd)/plugins/asset-management"
+pnpm dsh plugin --profile web add "$(pwd)/plugins/governance-plugin"
 pnpm dsh plugin --profile web add "$(pwd)/plugins/security-atomic"
+pnpm dsh plugin --profile web add "$(pwd)/plugins/sandbox-test"
 pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 ```
 
@@ -149,6 +157,18 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 Security Atomic 插件注册 6 个只读工具：资产、漏洞和安全事件分别提供 list/get。每次业务调用只访问一个接口、返回一种实体，不提供统计、聚合或风险评估工具。涉及多种实体的问题需要 Agent 先取得关联 ID，再逐项调用后续工具，并在需要完整结果时自行处理分页。
 
 工具统一使用 `security_` 前缀，可与资产管理插件同时加载。为了观察纯粹的原子工具选择与循环行为，建议测试 Agent Loop 时只启用 Security Atomic，避免模型改选现有的聚合工具。工具清单、预期调用链和测试问题见 [`security-atomic/README.md`](security-harness-plugin/plugins/security-atomic/README.md)。
+
+### Governance
+
+Governance 插件不注册业务工具，只拦截 `tools/pre-execute`：`query_assets` 和 `assess_asset_risk` 继续执行，`update_asset` 请求用户确认，`delete_asset` 直接拒绝。未列出的工具继续交给下游策略，因此这个最小示例可以与其他治理插件组合。
+
+策略代码、approval 前置条件和测试说明见 [`governance-plugin/README.md`](security-harness-plugin/plugins/governance-plugin/README.md)。
+
+### Sandbox Test
+
+Sandbox Test 插件注册一个无参数工具 `sandbox_write_test`，固定尝试写入 workspace 内的 `sandbox-inside.txt` 和受控 Demo 根目录内、workspace 外的 `sandbox-outside.txt`。切换 Session 的 `read-only`、`workspace-write`、`danger-full-access` 后，可以直接观察 Sandbox 边界差异；成功写入的文件会保留，工具不会覆盖已有目标或自动清理。
+
+三刀测试的目录准备、预期矩阵、防逃逸设计和逐步测试方法见 [`sandbox-test/README.md`](security-harness-plugin/plugins/sandbox-test/README.md)。
 
 ### Memory
 

@@ -1,0 +1,6 @@
+- insert:
+    - id: sandbox-test
+      name: '@security-harness/sandbox-test'
+      config:
+        demoRoot: !!js process.env.SANDBOX_DEMO_ROOT
+        timeoutMs: !!js Number(process.env.SANDBOX_TEST_TIMEOUT_MS ?? 5000)
