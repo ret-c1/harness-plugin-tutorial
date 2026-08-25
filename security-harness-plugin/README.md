@@ -14,6 +14,7 @@ security-harness-plugin/
 │   │   └── tsconfig.json
 │   ├── governance-plugin/
 │   │   ├── src/index.ts                    # tools/pre-execute 最小治理策略
+│   │   ├── src/demo-tools.ts               # 可选的零副作用 Web 教学测试桩
 │   │   ├── cordis.patch.yml
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -59,10 +60,30 @@ security-harness-plugin/
 | 插件 | 用途 | 数据边界 |
 | --- | --- | --- |
 | [`asset-management`](plugins/asset-management/README.md) | 资产查询、统计与风险评估 | 只读，实时状态必须以本轮 API 为准 |
-| [`governance-plugin`](plugins/governance-plugin/README.md) | `tools/pre-execute` allow / ask / deny 最小示例 | 不注册业务工具，只按工具名决定调用是否继续 |
+| [`governance-plugin`](plugins/governance-plugin/README.md) | `tools/pre-execute` allow / ask / deny 最小示例 | 正式策略不注册业务工具；另带一个不访问 API 的可选教学测试桩 |
 | [`memory`](plugins/memory/README.md) | User Memory、Project Memory、Task History 和逐轮 Memory Inspector | 可读写，一个实例只绑定一个 API 用户 |
 | [`sandbox-test`](plugins/sandbox-test/README.md) | 可视化对比 `read-only`、`workspace-write`、`danger-full-access` 边界 | 固定写受控 Demo 根目录内的 workspace 内外文件，不接受模型路径或命令 |
 | [`security-atomic`](plugins/security-atomic/README.md) | 资产、漏洞、事件原子查询和 Agent Loop 测试 | 只读，每个业务工具只访问一个接口并返回一种实体 |
+
+## 建议学习顺序
+
+不要一开始就同时启用全部插件。推荐按照仓库根目录教程逐步增加能力：
+
+```text
+security-atomic
+  → asset-management
+  → memory + security-atomic
+  → sandbox-test
+  → asset-management + governance-plugin
+```
+
+- 先用 `security-atomic` 观察 Agent 如何编排多个最小只读 Tool。
+- 再用 `asset-management` 对比确定性业务流下沉到 Tool 后的调用变化。
+- Memory 阶段同时保留一个实时业务 Tool，验证“记忆只提供查询线索，当前状态仍需重新获取”。
+- Sandbox 阶段只启用固定无参数测试 Tool，隔离其他文件能力。
+- Governance 阶段把策略插件与被治理的业务 Tool 一起挂载；未注册的 Tool 不会进入 `tools/pre-execute`。
+
+完整的七步启动、挂载、提示词和预期结果见 [`../README.md`](../README.md)。
 
 ## 开发
 
@@ -117,4 +138,4 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 
 Sandbox Test 插件要求设置 `SANDBOX_DEMO_ROOT`，并可选设置 `SANDBOX_TEST_TIMEOUT_MS`；目标 Harness 必须挂载 sandbox-enforcing Shell 和 Sandbox Policy。单个 `sandbox_write_test` 工具不接受测试路径或命令，固定对比受控实验区内的 workspace 内外写入并保留结果供观察。具体安全限制和三刀测试步骤见 [`sandbox-test/README.md`](plugins/sandbox-test/README.md)。
 
-Governance 插件不注册业务工具，只在 `tools/pre-execute` 对四个指定工具名返回 allow、ask 或 deny。`ask` 依赖目标 Harness 的 approval service 与可用 channel；详细策略和测试说明见 [`governance-plugin/README.md`](plugins/governance-plugin/README.md)。
+Governance 正式插件不注册业务工具，只在 `tools/pre-execute` 对四个指定工具名返回 allow、ask 或 deny。`src/demo-tools.ts` 是不进入 bundle patch 的可选 Web 教学测试桩，只返回固定 JSON，不访问 API。`ask` 依赖目标 Harness 的 approval service 与可用 channel；详细策略和测试说明见 [`governance-plugin/README.md`](plugins/governance-plugin/README.md)。

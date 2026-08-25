@@ -98,7 +98,7 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/sandbox-test"
 启动 Harness：
 
 ```sh
-cd /Users/fan/Documents/workspace/deepseek-ai/deepseek-harness
+cd /absolute/path/to/deepseek-harness
 pnpm dsh web --patch ./scratch-plugin/cordis.yml --port 3080
 ```
 

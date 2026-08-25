@@ -2,6 +2,30 @@
 
 DeepSeek Harness 的只读资产管理插件。插件连接网络安全资产 API，注册资产查询、统计和重点资产风险评估工具。
 
+## 教学定位
+
+本插件对应根教程的“业务流”阶段。与 `security-atomic` 把每次 API 查询暴露为一个原子 Tool 不同，本插件把已经稳定的分页、并发查询、汇总和评分规则封装进 `assess_asset_risk`，用于比较“Agent 编排”与“确定性代码编排”的差异。
+
+| Tool | 作用 | 类型 |
+| --- | --- | --- |
+| `asset_list` | 分页查询和筛选资产 | 原子查询 |
+| `asset_get` | 查询资产详情及内嵌关联风险 | 原子查询 |
+| `asset_ownership_statistics` | 查询责任人覆盖统计 | 服务端统计 |
+| `asset_risk_overview` | 查询全部资产风险概览 | 服务端统计 |
+| `assess_asset_risk` | 筛选重点资产、补齐关联风险并评分 | Workflow-style 业务流 |
+
+`assess_asset_risk` 的确定性执行链为：
+
+```text
+critical/high 资产分页查询
+  → 每项资产的 critical/high 漏洞与事件并发分页查询
+  → 排除已闭环项并汇总未响应项
+  → 叠加资产重要度、暴露面、责任人和风险项权重
+  → 输出 risk_score、risk_level 与 reasons
+```
+
+这里的 Workflow-style Tool 只是插件内部业务编排，不代表独立的 Harness 工作流引擎。
+
 ## 环境变量
 
 | 变量 | 必需 | 默认值 | 说明 |
@@ -12,6 +36,29 @@ DeepSeek Harness 的只读资产管理插件。插件连接网络安全资产 AP
 | `ASSET_API_TIMEOUT_MS` | 否 | `15000` | 每次工具调用的超时时间（毫秒） |
 
 凭据只通过环境变量注入，不要写入仓库。
+
+## Harness 挂载与测试
+
+源码联调时，在 Harness 的 `scratch-plugin/cordis.yml` 中挂载：
+
+```yaml
+- insert:
+    - id: asset-management
+      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/asset-management/src/index.ts'
+      config:
+        baseUrl: !!js process.env.ASSET_API_BASE_URL
+        username: !!js process.env.ASSET_API_USERNAME
+        password: !!js process.env.ASSET_API_PASSWORD
+        timeoutMs: !!js Number(process.env.ASSET_API_TIMEOUT_MS)
+```
+
+重启 Harness，新建 Session 并输入：
+
+```text
+评估全部重点资产的当前风险，列出风险分、风险等级和主要原因。
+```
+
+预期 Agent 调用一次 `assess_asset_risk`，Tool 内部完成完整业务流。测试 Agent Loop 的多次原子调用时，应改为只挂载 `security-atomic`，避免模型选择本插件的聚合能力。
 
 ## 实时数据与记忆使用规则
 

@@ -45,6 +45,16 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 
 `cordis.patch.yml` 会读取以上环境变量。生产环境应通过部署系统注入凭据，不要写入仓库或提交 `.env`。
 
+## 最小教学场景
+
+为了看清 Memory 是否真正影响后续行为，建议同时挂载一个只读实时业务插件，例如 `security-atomic`，再分三个动作测试：
+
+1. 在第一个 Session 明确要求创建 Project Memory：`project_id=harness-plugin-tutorial`、`key=default_demo_asset`、内容为“默认演示资产为 ASSET-001”。预期调用 `project_memory_create`。
+2. 新建 Session，要求先召回并应用该项目约定，再查询默认资产的当前详情。预期链路为 `memory_recall → memory_context_apply → security_asset_list/security_asset_get`。
+3. 明确要求遗忘该约定。预期先定位当前用户下的记录，再调用 `project_memory_delete`。
+
+这个练习刻意把“查询对象”和“实时状态”分开：Memory 可以提供 `ASSET-001`，但资产是否存在、当前状态和风险仍必须来自本轮 Security API。任一 Memory 写操作没有成功的 API 返回时，都不能声称已经保存、更新或删除。
+
 ## 工具
 
 Memory 的使用链路由两个只读工具显式完成：
