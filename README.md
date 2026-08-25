@@ -27,7 +27,7 @@
 │   ├── app/                                  # Security 与 Memory 模块
 │   ├── data/seed_test_data.sql               # 可重复导入的业务演示数据
 │   └── tests/                                # API 回归测试
-└── security-harness-plugin/                  # pnpm 插件 workspace
+└── harness-plugin-lib/                        # pnpm 插件 workspace
     └── plugins/
         ├── security-atomic/                   # 阶段 3：原子只读 Tool
         ├── asset-management/                  # 阶段 4：业务流与风险评估
@@ -64,7 +64,7 @@ export HARNESS_ROOT='/absolute/path/to/deepseek-harness'
 首次使用先安装并验证插件 workspace：
 
 ```sh
-cd "$TUTORIAL_ROOT/security-harness-plugin"
+cd "$TUTORIAL_ROOT/harness-plugin-lib"
 pnpm install
 pnpm run check
 pnpm run build
@@ -178,7 +178,7 @@ pnpm dsh web --patch ./scratch-plugin/cordis.yml --port 3080
 
 Tool 只做一件可验证的事：接收结构化参数、访问一个接口、返回一种实体。跨资产、漏洞和事件的推理交给 Agent Loop，而不是偷偷在 Tool 内聚合。
 
-[`security-atomic`](security-harness-plugin/plugins/security-atomic/README.md) 提供六个只读 Tool：资产、漏洞和事件分别有 list/get。可以先阅读 `security_asset_list` 的定义，再用同一结构理解其余五个。
+[`security-atomic`](harness-plugin-lib/plugins/security-atomic/README.md) 提供六个只读 Tool：资产、漏洞和事件分别有 list/get。可以先阅读 `security_asset_list` 的定义，再用同一结构理解其余五个。
 
 ### 配置和挂载
 
@@ -196,7 +196,7 @@ export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
 ```yaml
 - insert:
     - id: security-atomic
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/security-atomic/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/security-atomic/src/index.ts'
       config:
         baseUrl: !!js process.env.SECURITY_ATOMIC_API_BASE_URL
         username: !!js process.env.SECURITY_ATOMIC_API_USERNAME
@@ -235,7 +235,7 @@ export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
 
 当筛选条件、分页、并发查询和评分规则已经稳定，可以把它们封装为一个业务流 Tool。这里的 Workflow-style Tool 指插件内部的确定性业务编排，不是另一个独立的 Harness 工作流引擎。
 
-[`asset-management`](security-harness-plugin/plugins/asset-management/README.md) 中的 `assess_asset_risk` 会：
+[`asset-management`](harness-plugin-lib/plugins/asset-management/README.md) 中的 `assess_asset_risk` 会：
 
 ```text
 筛选 critical/high 资产
@@ -259,7 +259,7 @@ export ASSET_API_TIMEOUT_MS='15000'
 ```yaml
 - insert:
     - id: asset-management
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/asset-management/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/asset-management/src/index.ts'
       config:
         baseUrl: !!js process.env.ASSET_API_BASE_URL
         username: !!js process.env.ASSET_API_USERNAME
@@ -312,7 +312,7 @@ export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
 ```yaml
 - insert:
     - id: memory
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/memory/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/memory/src/index.ts'
       config:
         baseUrl: !!js process.env.MEMORY_API_BASE_URL
         username: !!js process.env.MEMORY_API_USERNAME
@@ -320,7 +320,7 @@ export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
         timeoutMs: !!js Number(process.env.MEMORY_API_TIMEOUT_MS)
 
     - id: security-atomic
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/security-atomic/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/security-atomic/src/index.ts'
       config:
         baseUrl: !!js process.env.SECURITY_ATOMIC_API_BASE_URL
         username: !!js process.env.SECURITY_ATOMIC_API_USERNAME
@@ -328,7 +328,7 @@ export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
         timeoutMs: !!js Number(process.env.SECURITY_ATOMIC_API_TIMEOUT_MS)
 ```
 
-只用绝对源码路径不会加载 Memory Inspector 浏览器面板。需要完整三栏可视化时，按 [`memory/README.md`](security-harness-plugin/plugins/memory/README.md) 构建并以 npm 包名挂载。
+只用绝对源码路径不会加载 Memory Inspector 浏览器面板。需要完整三栏可视化时，按 [`memory/README.md`](harness-plugin-lib/plugins/memory/README.md) 构建并以 npm 包名挂载。
 
 ### 练习 1：明确写入项目记忆
 
@@ -369,7 +369,7 @@ memory_recall
 
 Tool 具备写文件能力，不代表它可以写任意位置。这个实验对比“不可写”“只能写 workspace”“workspace 边界消失”。
 
-[`sandbox-test`](security-harness-plugin/plugins/sandbox-test/README.md) 只有一个无参数 Tool `sandbox_write_test`，固定尝试写两个文件：
+[`sandbox-test`](harness-plugin-lib/plugins/sandbox-test/README.md) 只有一个无参数 Tool `sandbox_write_test`，固定尝试写两个文件：
 
 ```text
 .sandbox-demo/
@@ -383,15 +383,15 @@ Tool 具备写文件能力，不代表它可以写任意位置。这个实验对
 
 ```sh
 mkdir -p \
-  "$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo/project" \
-  "$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo/outside"
+  "$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo/project" \
+  "$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo/outside"
 
 printf '%s\n' 'sandbox-test-demo-v1' \
-  > "$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo/.sandbox-demo-root"
+  > "$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo/.sandbox-demo-root"
 
-git -C "$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo/project" init
+git -C "$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo/project" init
 
-export SANDBOX_DEMO_ROOT="$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo"
+export SANDBOX_DEMO_ROOT="$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo"
 export SANDBOX_TEST_TIMEOUT_MS='5000'
 ```
 
@@ -402,7 +402,7 @@ export SANDBOX_TEST_TIMEOUT_MS='5000'
 ```yaml
 - insert:
     - id: sandbox-test
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/sandbox-test/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/sandbox-test/src/index.ts'
       config:
         demoRoot: !!js process.env.SANDBOX_DEMO_ROOT
         timeoutMs: !!js Number(process.env.SANDBOX_TEST_TIMEOUT_MS)
@@ -411,13 +411,13 @@ export SANDBOX_TEST_TIMEOUT_MS='5000'
 重启 Harness。三个场景必须使用三个新 Session，Session workspace 都选择：
 
 ```text
-/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo/project
+/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo/project
 ```
 
 每次测试前只删除两个固定结果文件：
 
 ```sh
-cd "$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo"
+cd "$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo"
 rm -f -- ./project/sandbox-inside.txt ./outside/sandbox-outside.txt
 ```
 
@@ -436,7 +436,7 @@ rm -f -- ./project/sandbox-inside.txt ./outside/sandbox-outside.txt
 测试后在终端 C 肉眼检查：
 
 ```sh
-cd "$TUTORIAL_ROOT/security-harness-plugin/.sandbox-demo"
+cd "$TUTORIAL_ROOT/harness-plugin-lib/.sandbox-demo"
 ls -l ./project/sandbox-inside.txt ./outside/sandbox-outside.txt 2>/dev/null
 ```
 
@@ -455,7 +455,7 @@ Governance 不负责实现业务 Tool，而是在已注册 Tool 真正执行前�
 | `update_asset` | ask | 用户确认后才执行 |
 | `delete_asset` | deny | 不执行 Tool |
 
-[`governance-plugin`](security-harness-plugin/plugins/governance-plugin/README.md) 监听 `tools/pre-execute`。allow 使用 `next()`，因此不会绕过其他治理插件的拒绝策略。
+[`governance-plugin`](harness-plugin-lib/plugins/governance-plugin/README.md) 监听 `tools/pre-execute`。allow 使用 `next()`，因此不会绕过其他治理插件的拒绝策略。
 
 ### 挂载无副作用测试桩和治理插件
 
@@ -466,10 +466,10 @@ Governance 不负责实现业务 Tool，而是在已注册 Tool 真正执行前�
 ```yaml
 - insert:
     - id: governance-demo-tools
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/governance-plugin/src/demo-tools.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/governance-plugin/src/demo-tools.ts'
 
     - id: governance-plugin
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/governance-plugin/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/governance-plugin/src/index.ts'
 ```
 
 重启 Harness，分别新建 Session，并按顺序测试：
@@ -486,7 +486,7 @@ Governance 不负责实现业务 Tool，而是在已注册 Tool 真正执行前�
 自动化验证策略和测试桩：
 
 ```sh
-cd "$TUTORIAL_ROOT/security-harness-plugin"
+cd "$TUTORIAL_ROOT/harness-plugin-lib"
 pnpm --filter @security-harness/governance-plugin run test
 ```
 
@@ -513,7 +513,7 @@ pytest -q
 修改 TypeScript 插件或插件文档后：
 
 ```sh
-cd "$TUTORIAL_ROOT/security-harness-plugin"
+cd "$TUTORIAL_ROOT/harness-plugin-lib"
 pnpm run check
 pnpm run build
 pnpm run test
@@ -534,4 +534,4 @@ git diff --check
 - 给 Governance 增加基于参数、用户或环境的组合策略，并验证下游策略仍能生效。
 - 将本地源码挂载改为 bundle 安装，练习插件发布和 profile 生命周期。
 
-插件 workspace 的构建、命名和安装说明见 [`security-harness-plugin/README.md`](security-harness-plugin/README.md)。每个实验的边界条件和排错细节，以对应插件 README 为准。
+插件 workspace 的构建、命名和安装说明见 [`harness-plugin-lib/README.md`](harness-plugin-lib/README.md)。每个实验的边界条件和排错细节，以对应插件 README 为准。

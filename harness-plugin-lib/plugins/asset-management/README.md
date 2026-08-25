@@ -44,7 +44,7 @@ critical/high 资产分页查询
 ```yaml
 - insert:
     - id: asset-management
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/asset-management/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/asset-management/src/index.ts'
       config:
         baseUrl: !!js process.env.ASSET_API_BASE_URL
         username: !!js process.env.ASSET_API_USERNAME

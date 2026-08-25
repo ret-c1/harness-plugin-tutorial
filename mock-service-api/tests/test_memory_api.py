@@ -78,7 +78,7 @@ def test_project_memory_and_task_history_are_user_scoped(client: TestClient):
     user_a = login(client, "user_a", "UserA@123")
 
     payload = {
-        "project_id": "security-harness-plugin",
+        "project_id": "harness-plugin-lib",
         "key": "api_contract",
         "content": "API 路径保持向后兼容",
     }
@@ -102,14 +102,14 @@ def test_project_memory_and_task_history_are_user_scoped(client: TestClient):
     filtered = client.get(
         "/api/v1/memory/project-memories",
         headers=admin,
-        params={"project_id": "security-harness-plugin"},
+        params={"project_id": "harness-plugin-lib"},
     )
     assert filtered.status_code == 200
     assert filtered.json()["total"] == 1
 
     task_payload = {
         "task_id": "task-001",
-        "project_id": "security-harness-plugin",
+        "project_id": "harness-plugin-lib",
         "session_id": "session-001",
         "title": "模块化 API",
         "task_input": "新增 memory API",

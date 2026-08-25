@@ -33,7 +33,7 @@ class UserMemoryRead(UserMemoryBase):
 
 
 class ProjectMemoryBase(UserMemoryBase):
-    project_id: str = Field(min_length=1, max_length=256, examples=["security-harness-plugin"])
+    project_id: str = Field(min_length=1, max_length=256, examples=["harness-plugin-lib"])
 
 
 class ProjectMemoryCreate(ProjectMemoryBase):

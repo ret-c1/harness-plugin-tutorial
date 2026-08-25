@@ -35,7 +35,7 @@ export MEMORY_API_PASSWORD='UserA@123'
 export MEMORY_API_TIMEOUT_MS='15000'
 ```
 
-在 `security-harness-plugin/` 目录安装到目标 profile：
+在 `harness-plugin-lib/` 目录安装到目标 profile：
 
 ```sh
 pnpm install
@@ -106,11 +106,11 @@ Memory Store → Search / Recall → Context Apply → Agent Action
 只用绝对 `src/index.ts` 路径可以加载插件的服务端工具，但 Harness 的 Web 客户端模块扫描依赖 npm 包名和 `package.json`。本地源码联调时，先构建插件并在目标 Harness profile 的 `node_modules` 中建立本地软链接，再在 `scratch-plugin/cordis.yml` 中使用包名。以下以默认 web profile 为例；`DSH_HOME` 未设置时通常是 `~/.dsh`：
 
 ```sh
-cd /path/to/harness-plugin-tutorial/security-harness-plugin
+cd /path/to/harness-plugin-tutorial/harness-plugin-lib
 pnpm --filter @security-harness/memory run build
 
 mkdir -p "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/@security-harness"
-ln -sfn /path/to/harness-plugin-tutorial/security-harness-plugin/plugins/memory \
+ln -sfn /path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/memory \
   "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/@security-harness/memory"
 ```
 

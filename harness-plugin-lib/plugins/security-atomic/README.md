@@ -69,7 +69,7 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/security-atomic"
 ```yaml
 - insert:
     - id: security-atomic
-      name: /absolute/path/to/security-harness-plugin/plugins/security-atomic/src/index.ts
+      name: /absolute/path/to/harness-plugin-lib/plugins/security-atomic/src/index.ts
       config:
         baseUrl: !!js process.env.SECURITY_ATOMIC_API_BASE_URL ?? process.env.ASSET_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
         username: !!js process.env.SECURITY_ATOMIC_API_USERNAME ?? process.env.ASSET_API_USERNAME

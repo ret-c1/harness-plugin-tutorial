@@ -1,11 +1,11 @@
-# Security Harness Plugins
+# Harness Plugin Library
 
 独立于 DeepSeek Harness 源码维护的安全领域插件 workspace。DeepSeek Harness 是运行时，本仓库只维护业务插件；安全平台 API 继续作为独立业务服务。
 
 ## 结构
 
 ```text
-security-harness-plugin/
+harness-plugin-lib/
 ├── plugins/
 │   ├── asset-management/
 │   │   ├── src/index.ts

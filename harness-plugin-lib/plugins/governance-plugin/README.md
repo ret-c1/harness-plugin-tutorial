@@ -40,7 +40,7 @@ ctx.on('tools/pre-execute', async (exec, next) => {
 ## 安装
 
 ```sh
-cd security-harness-plugin
+cd harness-plugin-lib
 pnpm dsh plugin --profile web add "$(pwd)/plugins/governance-plugin"
 ```
 
@@ -51,10 +51,10 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/governance-plugin"
 ```yaml
 - insert:
     - id: governance-demo-tools
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/governance-plugin/src/demo-tools.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/governance-plugin/src/demo-tools.ts'
 
     - id: governance-plugin
-      name: '/absolute/path/to/harness-plugin-tutorial/security-harness-plugin/plugins/governance-plugin/src/index.ts'
+      name: '/absolute/path/to/harness-plugin-tutorial/harness-plugin-lib/plugins/governance-plugin/src/index.ts'
 ```
 
 然后分别提问：
@@ -71,7 +71,7 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/governance-plugin"
 ## 验证
 
 ```sh
-cd security-harness-plugin
+cd harness-plugin-lib
 pnpm --filter @security-harness/governance-plugin run check
 pnpm --filter @security-harness/governance-plugin run build
 pnpm --filter @security-harness/governance-plugin run test

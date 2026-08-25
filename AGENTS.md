@@ -5,7 +5,7 @@
 ## 项目定位
 
 - 本仓库独立维护基于 DeepSeek Harness 开发的安全领域插件，不修改或复制 Harness 核心代码。
-- `security-harness-plugin/` 只负责插件 workspace；每个 `plugins/<name>/` 都应是可独立构建和安装的插件包。
+- `harness-plugin-lib/` 只负责插件 workspace；每个 `plugins/<name>/` 都应是可独立构建和安装的插件包。
 - `mock-service-api/` 是插件开发、测试和演示所依赖的 API 服务。除非任务明确要求，不要把 API 业务逻辑写入插件。
 
 ## 工作规则
@@ -30,7 +30,7 @@
 ## 验证要求
 
 - 修改 Python API 后，在 `mock-service-api/` 运行 `pytest -q`。
-- 修改 TypeScript 插件后，在 `security-harness-plugin/` 运行 `pnpm run check` 和 `pnpm run build`。
+- 修改 TypeScript 插件后，在 `harness-plugin-lib/` 运行 `pnpm run check` 和 `pnpm run build`。
 - 修改接口契约或插件配置时，同时验证 API 与插件，并更新相关 README、示例和 OpenAPI 描述。
 - 仅修改文档时至少检查链接、命令、路径以及 `git diff --check`；无法执行验证时在交付说明中注明原因。
 

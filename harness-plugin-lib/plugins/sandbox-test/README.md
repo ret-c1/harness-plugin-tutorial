@@ -22,7 +22,7 @@ DeepSeek Harness 的可视化 Sandbox 边界教学插件。插件只注册一个
 
 Harness 的 `workspace-write` 策略可能同时允许部分系统临时目录写入。如果 Demo 的 `outside/` 也位于 `/tmp`，第二刀可能被临时目录白名单允许，无法稳定展示 workspace 边界。
 
-本仓库建议把整个 Demo 放到 `security-harness-plugin/.sandbox-demo/`。这样 `outside/` 虽然在 Session workspace 外，仍受限于当前仓库中的专用实验区，不会触碰电脑其他数据目录。该目录已加入 `.gitignore`。
+本仓库建议把整个 Demo 放到 `harness-plugin-lib/.sandbox-demo/`。这样 `outside/` 虽然在 Session workspace 外，仍受限于当前仓库中的专用实验区，不会触碰电脑其他数据目录。该目录已加入 `.gitignore`。
 
 ## 安全边界
 
@@ -59,19 +59,19 @@ Bundle patch 使用以下配置：
 
 ```sh
 mkdir -p \
-  /path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo/project \
-  /path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo/outside
+  /path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo/project \
+  /path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo/outside
 
 printf '%s\n' 'sandbox-test-demo-v1' \
-  > /path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo/.sandbox-demo-root
+  > /path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo/.sandbox-demo-root
 
-git -C /path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo/project init
+git -C /path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo/project init
 ```
 
 设置插件配置：
 
 ```sh
-export SANDBOX_DEMO_ROOT='/path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo'
+export SANDBOX_DEMO_ROOT='/path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo'
 export SANDBOX_TEST_TIMEOUT_MS='5000'
 ```
 
@@ -80,7 +80,7 @@ export SANDBOX_TEST_TIMEOUT_MS='5000'
 ```yaml
 - insert:
     - id: sandbox-test
-      name: /absolute/path/to/security-harness-plugin/plugins/sandbox-test/src/index.ts
+      name: /absolute/path/to/harness-plugin-lib/plugins/sandbox-test/src/index.ts
       config:
         demoRoot: !!js process.env.SANDBOX_DEMO_ROOT
         timeoutMs: !!js Number(process.env.SANDBOX_TEST_TIMEOUT_MS ?? 5000)
@@ -89,7 +89,7 @@ export SANDBOX_TEST_TIMEOUT_MS='5000'
 也可以安装 bundle：
 
 ```sh
-cd security-harness-plugin
+cd harness-plugin-lib
 pnpm dsh plugin --profile web add "$(pwd)/plugins/sandbox-test"
 ```
 
@@ -105,7 +105,7 @@ pnpm dsh web --patch ./scratch-plugin/cordis.yml --port 3080
 Session workspace 必须设置为：
 
 ```text
-/path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo/project
+/path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo/project
 ```
 
 每一刀都使用独立 Session，并在调用前把该 Session 的 Sandbox mode 设置为对应值。调用提示词保持一致：
@@ -120,7 +120,7 @@ Session workspace 必须设置为：
 1. 删除上次生成的两个确切文件，首次运行也可执行：
 
    ```sh
-   cd /path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo
+   cd /path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo
    rm -f -- ./project/sandbox-inside.txt ./outside/sandbox-outside.txt
    ```
 
@@ -144,7 +144,7 @@ Session workspace 必须设置为：
 每次调用后执行：
 
 ```sh
-cd /path/to/harness-plugin-tutorial/security-harness-plugin/.sandbox-demo
+cd /path/to/harness-plugin-tutorial/harness-plugin-lib/.sandbox-demo
 
 ls -l ./project/sandbox-inside.txt ./outside/sandbox-outside.txt 2>/dev/null
 
@@ -165,7 +165,7 @@ created by sandbox_write_test
 自动化测试的临时数据只创建在插件目录下，并在测试结束后删除：
 
 ```sh
-cd security-harness-plugin
+cd harness-plugin-lib
 pnpm --filter @security-harness/sandbox-test run check
 pnpm --filter @security-harness/sandbox-test run build
 pnpm --filter @security-harness/sandbox-test run test

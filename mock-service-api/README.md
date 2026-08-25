@@ -276,7 +276,7 @@ Memory 接口按 Bearer Token 中的当前用户严格隔离。请求体不接�
 
 Memory 是用户个人数据，因此所有已登录且启用的账号均可维护自己的记忆，不沿用 Security 模块的角色写权限。例如，只读业务角色 `user_b` 仍可创建、修改和删除自己的 Memory 数据。
 
-Harness 侧一个 Memory 插件实例只能绑定一个 API 账号。多用户部署应为每个用户分配独立的 scoped 实例或 profile，不能让模型选择 `user_id`。插件配置、工具列表和异常处理见 [`../security-harness-plugin/plugins/memory/README.md`](../security-harness-plugin/plugins/memory/README.md)。
+Harness 侧一个 Memory 插件实例只能绑定一个 API 账号。多用户部署应为每个用户分配独立的 scoped 实例或 profile，不能让模型选择 `user_id`。插件配置、工具列表和异常处理见 [`../harness-plugin-lib/plugins/memory/README.md`](../harness-plugin-lib/plugins/memory/README.md)。
 
 #### User Memory
 
@@ -314,7 +314,7 @@ Harness 侧一个 Memory 插件实例只能绑定一个 API 账号。多用户�
 
 ```json
 {
-  "project_id": "security-harness-plugin",
+  "project_id": "harness-plugin-lib",
   "key": "api_contract",
   "content": "现有 API 路径保持向后兼容",
   "metadata": {"category": "decision"}
@@ -338,7 +338,7 @@ Harness 侧一个 Memory 插件实例只能绑定一个 API 账号。多用户�
 ```json
 {
   "task_id": "task-20260821-001",
-  "project_id": "security-harness-plugin",
+  "project_id": "harness-plugin-lib",
   "session_id": "session-001",
   "title": "模块化测试 API",
   "task_input": "新增 Memory 插件联调接口",
