@@ -2,7 +2,7 @@
 
 本项目用于独立维护基于 DeepSeek Harness 框架开发的安全领域插件。插件代码与 Harness 主仓库解耦，便于单独开发、测试、构建和发布。
 
-仓库目前包含资产管理和 Memory 两个插件，以及一套供本地开发和联调使用的模块化 API。资产管理插件提供资产查询、统计和风险评估；Memory 插件提供按用户隔离的 User Memory、Project Memory、Task History，以及逐轮展示召回与行为链路的 Memory Inspector。
+仓库目前包含资产管理、Security Atomic 和 Memory 三个插件，以及一套供本地开发和联调使用的模块化 API。资产管理插件提供资产查询、统计和风险评估；Security Atomic 插件把资产、漏洞和事件拆成原子只读工具，用于测试 Agent Loop；Memory 插件提供按用户隔离的 User Memory、Project Memory、Task History，以及逐轮展示召回与行为链路的 Memory Inspector。
 
 ## 项目结构
 
@@ -14,7 +14,8 @@
 └── security-harness-plugin/                  # pnpm 插件 workspace
     └── plugins/
         ├── asset-management/                 # 资产管理插件
-        └── memory/                           # 用户隔离 Memory 插件
+        ├── memory/                           # 用户隔离 Memory 插件
+        └── security-atomic/                   # Agent Loop 原子安全工具
 ```
 
 两个子项目可以分别开发。完整联调时，先启动 `mock-service-api`，再配置并启动 DeepSeek Harness 中的插件。
@@ -98,6 +99,12 @@ export ASSET_API_USERNAME='admin'
 export ASSET_API_PASSWORD='Admin@123'
 export ASSET_API_TIMEOUT_MS='15000'
 
+# Agent Loop 原子安全工具，可使用只读账号
+export SECURITY_ATOMIC_API_BASE_URL='http://127.0.0.1:8000/api/v1'
+export SECURITY_ATOMIC_API_USERNAME='user_b'
+export SECURITY_ATOMIC_API_PASSWORD='UserB@123'
+export SECURITY_ATOMIC_API_TIMEOUT_MS='15000'
+
 # 每个 Memory 插件实例只绑定一个 API 用户
 export MEMORY_API_BASE_URL='http://127.0.0.1:8000/api/v1'
 export MEMORY_API_USERNAME='user_a'
@@ -115,10 +122,11 @@ pnpm dsh web --patch ./scratch-plugin/cordis.yml --port 3080
 
 ```bash
 pnpm dsh plugin --profile web add "$(pwd)/plugins/asset-management"
+pnpm dsh plugin --profile web add "$(pwd)/plugins/security-atomic"
 pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 ```
 
-随后按 DeepSeek Harness 的方式启动对应 profile。两个插件会分别登录 API 并注册工具。
+随后按 DeepSeek Harness 的方式启动对应 profile。各插件会分别登录 API 并注册工具。
 
 ### 资产管理
 
@@ -135,6 +143,12 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 接入后可以直接向 Harness 提问，例如“查询所有互联网暴露的关键资产”或“评估重点资产是否存在高风险”，Harness 会按需调用相应工具。
 
 资产清单、状态、统计和风险结论必须以本轮接口结果为准。接口认证失败、返回非成功状态、网络不可达、超时或响应格式异常时，Harness 应明确告知用户接口错误，不得使用会话记忆或历史工具结果补齐实时业务数据。详细规则见 [`asset-management/README.md`](security-harness-plugin/plugins/asset-management/README.md)。
+
+### Security Atomic
+
+Security Atomic 插件注册 6 个只读工具：资产、漏洞和安全事件分别提供 list/get。每次业务调用只访问一个接口、返回一种实体，不提供统计、聚合或风险评估工具。涉及多种实体的问题需要 Agent 先取得关联 ID，再逐项调用后续工具，并在需要完整结果时自行处理分页。
+
+工具统一使用 `security_` 前缀，可与资产管理插件同时加载。为了观察纯粹的原子工具选择与循环行为，建议测试 Agent Loop 时只启用 Security Atomic，避免模型改选现有的聚合工具。工具清单、预期调用链和测试问题见 [`security-atomic/README.md`](security-harness-plugin/plugins/security-atomic/README.md)。
 
 ### Memory
 

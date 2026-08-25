@@ -1,0 +1,9 @@
+# Credentials are required at startup; keep them in environment variables.
+- insert:
+    - id: security-atomic
+      name: '@security-harness/security-atomic'
+      config:
+        baseUrl: !!js process.env.SECURITY_ATOMIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
+        username: !!js process.env.SECURITY_ATOMIC_API_USERNAME
+        password: !!js process.env.SECURITY_ATOMIC_API_PASSWORD
+        timeoutMs: !!js Number(process.env.SECURITY_ATOMIC_API_TIMEOUT_MS ?? 15000)
