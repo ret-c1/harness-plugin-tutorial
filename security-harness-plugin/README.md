@@ -91,4 +91,4 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/memory"
 
 安装 Memory 插件前必须先配置 `MEMORY_API_BASE_URL`、`MEMORY_API_USERNAME`、`MEMORY_API_PASSWORD` 和可选的 `MEMORY_API_TIMEOUT_MS`。共享多用户部署不得共用一组账号，应按用户拆分 scoped 插件实例或 profile。详细说明见 [`memory/README.md`](plugins/memory/README.md)。
 
-安装 Security Atomic 插件前配置 `SECURITY_ATOMIC_API_USERNAME`、`SECURITY_ATOMIC_API_PASSWORD`，以及可选的 `SECURITY_ATOMIC_API_BASE_URL`、`SECURITY_ATOMIC_API_TIMEOUT_MS`。为避免聚合工具影响 Agent Loop 对照测试，建议对应 profile 只启用该插件。详细说明见 [`security-atomic/README.md`](plugins/security-atomic/README.md)。
+安装 Security Atomic 插件前配置 `SECURITY_ATOMIC_API_USERNAME`、`SECURITY_ATOMIC_API_PASSWORD`，以及可选的 `SECURITY_ATOMIC_API_BASE_URL`、`SECURITY_ATOMIC_API_TIMEOUT_MS`；与资产管理插件共用账号时，未设置的专用变量会回退到对应的 `ASSET_API_*`。为避免聚合工具影响 Agent Loop 对照测试，建议对应 profile 只启用该插件。详细说明见 [`security-atomic/README.md`](plugins/security-atomic/README.md)。

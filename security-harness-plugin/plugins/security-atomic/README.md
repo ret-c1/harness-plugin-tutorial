@@ -19,14 +19,14 @@
 
 ## 环境变量
 
-| 变量 | 必需 | 默认值 | 说明 |
+| 变量 | 必需 | 回退值 | 说明 |
 | --- | --- | --- | --- |
-| `SECURITY_ATOMIC_API_BASE_URL` | 否 | `http://127.0.0.1:8000/api/v1` | Security API 根地址，必须使用 HTTP 或 HTTPS |
-| `SECURITY_ATOMIC_API_USERNAME` | 是 | — | 登录用户名 |
-| `SECURITY_ATOMIC_API_PASSWORD` | 是 | — | 登录密码 |
-| `SECURITY_ATOMIC_API_TIMEOUT_MS` | 否 | `15000` | 每次工具调用的超时时间（毫秒） |
+| `SECURITY_ATOMIC_API_BASE_URL` | 否 | `ASSET_API_BASE_URL`，再回退到 `http://127.0.0.1:8000/api/v1` | Security API 根地址，必须使用 HTTP 或 HTTPS |
+| `SECURITY_ATOMIC_API_USERNAME` | 条件必需 | `ASSET_API_USERNAME` | 登录用户名；两者至少设置一个 |
+| `SECURITY_ATOMIC_API_PASSWORD` | 条件必需 | `ASSET_API_PASSWORD` | 登录密码；两者至少设置一个 |
+| `SECURITY_ATOMIC_API_TIMEOUT_MS` | 否 | `ASSET_API_TIMEOUT_MS`，再回退到 `15000` | 每次工具调用的超时时间（毫秒） |
 
-凭据只通过环境变量或 Cordis schema 注入，不要写入仓库。
+单独部署本插件时使用 `SECURITY_ATOMIC_API_*`。与 `asset-management` 共用同一 API 账号时可以只设置现有 `ASSET_API_*`；专用变量存在时优先使用专用值。凭据只通过环境变量或 Cordis schema 注入，不要写入仓库。
 
 ## Agent Loop 测试建议
 
@@ -71,8 +71,8 @@ pnpm dsh plugin --profile web add "$(pwd)/plugins/security-atomic"
     - id: security-atomic
       name: /absolute/path/to/security-harness-plugin/plugins/security-atomic/src/index.ts
       config:
-        baseUrl: !!js process.env.SECURITY_ATOMIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
-        username: !!js process.env.SECURITY_ATOMIC_API_USERNAME
-        password: !!js process.env.SECURITY_ATOMIC_API_PASSWORD
-        timeoutMs: !!js Number(process.env.SECURITY_ATOMIC_API_TIMEOUT_MS ?? 15000)
+        baseUrl: !!js process.env.SECURITY_ATOMIC_API_BASE_URL ?? process.env.ASSET_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1'
+        username: !!js process.env.SECURITY_ATOMIC_API_USERNAME ?? process.env.ASSET_API_USERNAME
+        password: !!js process.env.SECURITY_ATOMIC_API_PASSWORD ?? process.env.ASSET_API_PASSWORD
+        timeoutMs: !!js Number(process.env.SECURITY_ATOMIC_API_TIMEOUT_MS ?? process.env.ASSET_API_TIMEOUT_MS ?? 15000)
 ```
